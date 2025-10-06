@@ -1,9 +1,12 @@
 import requests
 import json
 import time
+import re
 from docx import Document
 from docx.oxml.ns import qn
 from docx.shared import Pt
+from docx.shared import Inches
+import os
 
 def login(email, password):
     session = requests.Session()
@@ -58,8 +61,26 @@ def set_chinese_font(doc, font_name='微软雅黑'):
     style._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
     style.font.size = Pt(12)
 
+def chaseimg(content):
+    pattern = r'\[图\d+\]'
+    matches = re.findall(pattern, content)
+    return matches
+
+def get_img(id,token,userid):
+    url = 'https://f.nideriji.cn/api/image/'+str(userid)+'/'+str(id)+'/'
+    headers = {
+        'Auth': 'token ' + token,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0'
+    }
+    response = requests.get(url, headers=headers)
+    with open(id+'.jpg', 'wb') as f:
+        f.write(response.content)
+        print('✅ 图片已保存为 '+id+'.jpg')
+    # 返回文件名
+    return id+'.jpg'
+
 def main():
-    logins = login('2212831947@qq.com', '89937.7374')
+    logins = login('', '')
     token = logins.get('token')
     userid = logins.get('user_config').get('userid')
     print(userid)
@@ -74,14 +95,49 @@ def main():
     for i in shujv:
         diary = pin(userid, token, i.get('id'))
         content = diary.get('diaries')[0].get('content')
+        img_ids = chaseimg(content)
+        img_files = {}  # 存储图片ID和文件路径的映射
+        
+        # 下载所有图片
+        for img_tag in img_ids:
+            pattern = r'\[图(\d+)\]'
+            numbers = re.findall(pattern, img_tag)
+            if numbers:
+                img_id = numbers[0]
+                # 下载图片并保存文件路径
+                img_file = get_img(img_id, token, userid)
+                img_files[img_tag] = img_file
+
         timets = diary.get('diaries')[0].get('ts')
         l_time = time.localtime(timets)
         formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', l_time)
 
         # 添加标题（一级标题）
         doc.add_heading(formatted_time, level=1)
-        # 添加正文
-        doc.add_paragraph(content)
+        
+        # 处理内容中的图片标签
+        if img_files:
+            # 分割内容，按图片标签分割
+            parts = re.split(r'(\[图\d+\])', content)            
+            # 添加第一段文本（图片标签前的内容）
+            if parts and parts[0]:
+                doc.add_paragraph(parts[0])
+            
+            # 遍历分割后的内容和图片标签
+            for j in range(1, len(parts)):
+                part = parts[j]
+                if part in img_files:
+                    # 添加图片
+                    if os.path.exists(img_files[part]):
+                        doc.add_picture(img_files[part], width=Inches(4.0))
+                    else:
+                        # 如果图片不存在，添加原始标签
+                        doc.add_paragraph(part)
+                elif part:  # 添加非空的文本部分
+                    doc.add_paragraph(part)
+        else:
+            # 没有图片直接添加内容
+            doc.add_paragraph(content)
 
         print(formatted_time)
         print(content)

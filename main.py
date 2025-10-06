@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+from fpdf import FPDF
 
 def login(email, password):
     session = requests.Session()
@@ -47,6 +48,12 @@ def pin(userid,token,id):
     }
     resp = session.post(url, data=date, headers=headers)
     return resp.json()
+
+def pdf(content,formatted_time):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True,margin=15)
+    
 
 def main():
     logins= login('2212831947@qq.com', '89937.7374')

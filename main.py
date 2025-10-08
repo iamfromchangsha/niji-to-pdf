@@ -80,7 +80,9 @@ def get_img(id,token,userid):
     return id+'.jpg'
 
 def main():
-    logins = login('', '')
+    email = input('请输入邮箱：')
+    password = input('请输入密码：')
+    logins = login(email, password)
     token = logins.get('token')
     userid = logins.get('user_config').get('userid')
     print(userid)

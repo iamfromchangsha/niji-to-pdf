@@ -66,18 +66,36 @@ def chaseimg(content):
     matches = re.findall(pattern, content)
     return matches
 
-def get_img(id,token,userid):
+def get_img(id, token, userid):
+    # 创建img文件夹（如果不存在）
+    img_folder = 'img'
+    if not os.path.exists(img_folder):
+        os.makedirs(img_folder)
+        
     url = 'https://f.nideriji.cn/api/image/'+str(userid)+'/'+str(id)+'/'
     headers = {
         'Auth': 'token ' + token,
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0'
     }
-    response = requests.get(url, headers=headers)
-    with open(id+'.jpg', 'wb') as f:
-        f.write(response.content)
-        print('✅ 图片已保存为 '+id+'.jpg')
-    # 返回文件名
-    return id+'.jpg'
+    
+    # 添加重试机制
+    max_retries = 3
+    for attempt in range(max_retries):
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            # 保存图片到img文件夹
+            img_path = os.path.join(img_folder, id+'.jpg')
+            with open(img_path, 'wb') as f:
+                f.write(response.content)
+                print('✅ 图片已保存为 '+img_path)
+            # 返回文件路径
+            return img_path
+        else:
+            print(f'⚠️ 图片{id}下载失败，状态码: {response.status_code}，重试 {attempt + 1}/{max_retries}')
+            time.sleep(1)  # 等待1秒后重试
+    
+    print(f'❌ 图片{id}下载失败，已达到最大重试次数')
+    return None
 
 def main():
     email = input('请输入邮箱：')

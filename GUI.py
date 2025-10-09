@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import requests
 import json
 import time
@@ -71,16 +71,35 @@ def chaseimg(content):
 
 
 def get_img(id, token, userid):
+    # 创建img文件夹（如果不存在）
+    img_folder = 'img'
+    if not os.path.exists(img_folder):
+        os.makedirs(img_folder)
+        
     url = f'https://f.nideriji.cn/api/image/{userid}/{id}/'
     headers = {
         'Auth': 'token ' + token,
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0'
     }
-    response = requests.get(url, headers=headers)
-    filename = f"{id}.jpg"
-    with open(filename, 'wb') as f:
-        f.write(response.content)
-    return filename
+    
+    # 添加重试机制
+    max_retries = 3
+    for attempt in range(max_retries):
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            # 保存图片到img文件夹
+            img_path = os.path.join(img_folder, f"{id}.jpg")
+            with open(img_path, 'wb') as f:
+                f.write(response.content)
+                print('✅ 图片已保存为 '+img_path)
+            # 返回文件路径
+            return img_path
+        else:
+            print(f'⚠️ 图片{id}下载失败，状态码: {response.status_code}，重试 {attempt + 1}/{max_retries}')
+            time.sleep(1)  # 等待1秒后重试
+    
+    print(f'❌ 图片{id}下载失败，已达到最大重试次数')
+    return None
 
 
 def export_diaries(email, password):
@@ -103,11 +122,31 @@ def export_diaries(email, password):
             messagebox.showinfo("提示", "没有找到日记数据。")
             return
 
+        # 创建进度窗口
+        progress_window = tk.Toplevel()
+        progress_window.title("导出进度")
+        progress_window.geometry("300x100")
+        progress_window.resizable(False, False)
+        
+        progress_label = tk.Label(progress_window, text="正在导出日记...")
+        progress_label.pack(pady=5)
+        
+        progress_var = tk.DoubleVar()
+        progress_bar = ttk.Progressbar(progress_window, variable=progress_var, maximum=100)
+        progress_bar.pack(padx=20, pady=10, fill=tk.X)
+        
+        progress_percentage = tk.Label(progress_window, text="0%")
+        progress_percentage.pack()
+        
+        # 更新进度窗口
+        progress_window.update()
+
         # 创建 Word 文档
         doc = Document()
         set_chinese_font(doc)
 
-        for diary_info in shujv:
+        total_diaries = len(shujv)
+        for index, diary_info in enumerate(shujv):
             diary_id = diary_info.get('id')
             diary = pin(userid, token, diary_id)
             diary_data = diary.get('diaries', [{}])[0]
@@ -145,14 +184,30 @@ def export_diaries(email, password):
                         doc.add_paragraph(part)
             else:
                 doc.add_paragraph(content)
+            
+            # 更新进度
+            progress_percent = (index + 1) / total_diaries * 100
+            progress_var.set(progress_percent)
+            progress_percentage.config(text=f"{int(progress_percent)}%")
+            progress_window.update_idletasks()
+            progress_window.update()
 
         # 保存文档
         output_file = 'nideriji_diaries.docx'
         doc.save(output_file)
+        
+        # 关闭进度窗口
+        progress_window.destroy()
+        
         messagebox.showinfo("成功", f"Word 文档已保存为 {output_file}")
 
     except Exception as e:
         messagebox.showerror("错误", f"发生异常：{str(e)}")
+        # 确保在出现异常时进度窗口也被关闭
+        try:
+            progress_window.destroy()
+        except:
+            pass
 
 
 def on_submit():

@@ -8,6 +8,10 @@ from docx import Document
 from docx.oxml.ns import qn
 from docx.shared import Pt, Inches
 import os
+from PIL import Image, ImageTk
+from io import BytesIO
+import urllib.request
+import threading
 
 
 def login(email, password):
@@ -145,6 +149,23 @@ def export_diaries(email, password):
         doc = Document()
         set_chinese_font(doc)
 
+        # 创建预览窗口
+        preview_window = tk.Toplevel()
+        preview_window.title("日记预览")
+        preview_window.geometry("600x400")
+        
+        # 设置背景图片
+        try:
+            # 创建默认背景
+            bg_frame = tk.Frame(preview_window)
+            bg_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # 创建文本框用于显示日记内容
+            text_area = tk.Text(bg_frame, wrap=tk.WORD, bg="white", fg="black")
+            text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        except Exception as e:
+            print(f"创建预览窗口时出错: {e}")
+
         total_diaries = len(shujv)
         for index, diary_info in enumerate(shujv):
             diary_id = diary_info.get('id')
@@ -156,6 +177,17 @@ def export_diaries(email, password):
             # 格式化时间
             l_time = time.localtime(timets)
             formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', l_time)
+
+            # 在预览窗口中显示日记内容
+            try:
+                text_area.insert(tk.END, f"\n{'='*50}\n")
+                text_area.insert(tk.END, f"日期: {formatted_time}\n")
+                text_area.insert(tk.END, f"{'='*50}\n")
+                text_area.insert(tk.END, f"{content}\n")
+                text_area.see(tk.END)  # 滚动到最新内容
+                text_area.update_idletasks()
+            except Exception as e:
+                print(f"更新预览窗口时出错: {e}")
 
             # 提取图片标签
             img_ids = chaseimg(content)

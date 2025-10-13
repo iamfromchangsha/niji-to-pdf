@@ -126,7 +126,9 @@ def main():
                 img_id = numbers[0]
                 # 下载图片并保存文件路径
                 img_file = get_img(img_id, token, userid)
-                img_files[img_tag] = img_file
+                # 只有在图片下载成功时才添加到img_files字典中
+                if img_file:
+                    img_files[img_tag] = img_file
 
         timets = diary.get('diaries')[0].get('ts')
         l_time = time.localtime(timets)

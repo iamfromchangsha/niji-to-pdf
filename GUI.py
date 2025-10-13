@@ -197,7 +197,9 @@ def export_diaries(email, password):
                 if match:
                     img_id = match.group(1)
                     img_file = get_img(img_id, token, userid)
-                    img_files[img_tag] = img_file
+                    # 只有在图片下载成功时才添加到img_files字典中
+                    if img_file:
+                        img_files[img_tag] = img_file
 
             # 添加标题
             doc.add_heading(formatted_time, level=1)
